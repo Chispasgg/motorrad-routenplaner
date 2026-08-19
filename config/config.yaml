@@ -1,0 +1,37 @@
+# Dokumentation des Server-Deployments (LAN, servidor IA).
+#
+# Hinweis: Die Anwendung selbst liest ihre Konfiguration aus Umgebungsvariablen
+# (backend/src/config.ts, gespeist aus .env). Diese Datei beschreibt das Deployment
+# und ersetzt die .env nicht.
+
+service:
+  name: Motorrad Routenplaner
+  repository: https://github.com/Chispasgg/motorrad-routenplaner
+  upstream: https://github.com/mzluzifer/motorrad-routenplaner
+  install_dir: /home/chispas/herramientas/motorrad-routenplaner
+  compose_file: docker-compose.server.yml
+  deployed_branch: main
+  mode: server_local_brouter
+
+network:
+  public_url: http://192.168.65.9:9640
+  web_bind: 192.168.65.9
+  web_port: 9640
+
+routing:
+  brouter_url: http://brouter:17777/brouter
+  local_brouter_tiles_enabled: true
+  tiles_dir: brouter-data/segments4
+  tiles_source: https://brouter.de/brouter/segments4/
+  tiles_coverage: Iberische Halbinsel und Süden Frankreichs (E0/W5/W10 x N35/N40/N45)
+
+external_services:
+  overpass_url: https://overpass-api.de/api/interpreter
+  nominatim_url: https://nominatim.openstreetmap.org
+  autobahn_url: https://verkehr.autobahn.de/o/autobahn
+  weather_provider: Open-Meteo
+
+notes:
+  - Der öffentliche BRouter (brouter.de) antwortete im Dauerbetrieb mit 403; deshalb läuft das Routing lokal.
+  - Für Gebiete außerhalb der geladenen Kacheln müssen weitere .rd5-Dateien ergänzt werden.
+  - customprofiles muss schreibbar bleiben: das Backend lädt seine Profile zur Laufzeit dorthin hoch.

@@ -1,0 +1,100 @@
+# Vollständiges LAN-Deployment: BRouter (lokal) + Backend + Frontend (nginx).
+#
+# Anders als docker-compose.yml (nur BRouter + Backend, Frontend per Vite) liefert
+# dieses Compose auch das gebaute Frontend aus und ist für den Dauerbetrieb auf dem
+# Server gedacht.
+#
+# Voraussetzung: Routing-Kacheln unter ./brouter-data/segments4/ (*.rd5).
+# Konfiguration kommt aus ./.env (siehe .env.example).
+
+services:
+  brouter:
+    build:
+      context: .
+      dockerfile: brouter.Dockerfile
+    image: local/motorrad-routenplaner-brouter:server
+    container_name: motorrad-routenplaner-brouter
+    restart: unless-stopped
+    volumes:
+      # Routing-Daten sind statisch -> nur lesend einhängen.
+      - ./brouter-data/segments4:/app/segments4:ro
+      # Das Backend lädt seine Profile zur Laufzeit hoch -> muss schreibbar sein.
+      - ./brouter-data/customprofiles:/app/customprofiles
+    expose:
+      - "17777"
+    healthcheck:
+      # Das Image bringt weder curl noch wget mit -> TCP-Probe über bash.
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/127.0.0.1/17777' || exit 1"]
+      interval: 30s
+      timeout: 5s
+      start_period: 60s
+      retries: 5
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  motorrad-routenplaner-backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    image: local/motorrad-routenplaner-backend:server
+    container_name: motorrad-routenplaner-backend
+    restart: unless-stopped
+    depends_on:
+      brouter:
+        condition: service_healthy
+    environment:
+      PORT: "8080"
+      # Im Container auf allen Interfaces lauschen, sonst kommt der nginx nicht durch.
+      HOST: "0.0.0.0"
+      BROUTER_URL: "${BROUTER_URL:-http://brouter:17777/brouter}"
+      OVERPASS_URL: "${OVERPASS_URL:-https://overpass-api.de/api/interpreter}"
+      NOMINATIM_URL: "${NOMINATIM_URL:-https://nominatim.openstreetmap.org}"
+      AUTOBAHN_URL: "${AUTOBAHN_URL:-https://verkehr.autobahn.de/o/autobahn}"
+      CONTACT_EMAIL: "${CONTACT_EMAIL:-}"
+    expose:
+      - "8080"
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:8080/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  motorrad-routenplaner-web:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    image: local/motorrad-routenplaner-web:server
+    container_name: motorrad-routenplaner-web
+    restart: unless-stopped
+    depends_on:
+      motorrad-routenplaner-backend:
+        condition: service_started
+    ports:
+      # Bind-Adresse und Port kommen aus der .env (Default: nur lokal erreichbar).
+      - "${WEB_BIND:-127.0.0.1}:${WEB_PORT:-9640}:80"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/ >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
