@@ -6,7 +6,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends git \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /src
 RUN git clone --depth 1 https://github.com/abrensch/brouter.git .
-RUN ./gradlew --no-daemon clean build
+# Das Fat-Jar landet versionsabhängig unter brouter-server/build/libs
+# (z. B. brouter-1.7.11-beta-all.jar) – auf einen festen Pfad normalisieren,
+# damit die Laufzeitstufe unabhängig von der BRouter-Version bleibt.
+RUN ./gradlew --no-daemon clean build \
+    && jar="$(find /src -name 'brouter-*-all.jar' | head -n 1)" \
+    && test -n "$jar" \
+    && cp "$jar" /src/brouter.jar
 
 FROM eclipse-temurin:21-jre
 WORKDIR /app
