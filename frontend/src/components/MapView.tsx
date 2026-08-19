@@ -70,8 +70,10 @@ export default function MapView(props: Props) {
     const map = new maplibregl.Map({
       container: containerRef.current,
       style: STYLE_URL,
-      center: [10.45, 51.16], // Deutschland
-      zoom: 6,
+      // Startansicht aus der Build-Konfiguration (VITE_MAP_CENTER/VITE_MAP_ZOOM).
+      // Sobald Wegpunkte gesetzt sind, zoomt fitBounds auf die Route.
+      center: __MAP_CENTER__,
+      zoom: __MAP_ZOOM__,
       // Erlaubt den Export des Kartenbilds (z. B. Screenshot via canvas.toDataURL).
       preserveDrawingBuffer: true,
     });

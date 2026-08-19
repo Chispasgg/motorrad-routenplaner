@@ -86,6 +86,10 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.frontend
+      args:
+        # Startansicht der Karte; wird beim Build in das Bundle eingesetzt.
+        VITE_MAP_CENTER: "${VITE_MAP_CENTER:-}"
+        VITE_MAP_ZOOM: "${VITE_MAP_ZOOM:-}"
     image: local/motorrad-routenplaner-web:server
     container_name: motorrad-routenplaner-web
     restart: unless-stopped

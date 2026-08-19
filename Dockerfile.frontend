@@ -8,6 +8,14 @@ COPY frontend/package.json ./frontend/package.json
 RUN npm ci --workspace frontend --include-workspace-root
 
 COPY frontend ./frontend
+
+# Startansicht der Karte. Vite setzt die Werte beim Build ein, deshalb ARG
+# und nicht erst zur Laufzeit. Ohne Angabe gilt der Default aus vite.config.ts.
+ARG VITE_MAP_CENTER
+ARG VITE_MAP_ZOOM
+ENV VITE_MAP_CENTER=${VITE_MAP_CENTER} \
+    VITE_MAP_ZOOM=${VITE_MAP_ZOOM}
+
 RUN npm run build --workspace frontend
 
 # Unprivilegiertes nginx-Image: läuft als Benutzer „nginx" und lauscht auf 8080,
