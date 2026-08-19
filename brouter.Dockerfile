@@ -26,5 +26,6 @@ COPY backend/brouter-profiles/ /app/profiles2/
 VOLUME ["/app/segments4", "/app/customprofiles"]
 EXPOSE 17777
 
-# RouteServer <segmentdir> <profiledir> <customprofiledir> <port> <bind> <threads> <maxruntime>
-CMD ["sh", "-c", "java -cp /app/brouter.jar btools.server.RouteServer /app/segments4 /app/profiles2 /app/customprofiles 17777 0.0.0.0 4 300"]
+# RouteServer <segmentdir> <profiledir> <customprofiledir> <port> <maxthreads> [bindaddress]
+CMD ["java", "-cp", "/app/brouter.jar", "btools.server.RouteServer", \
+     "/app/segments4", "/app/profiles2", "/app/customprofiles", "17777", "4", "0.0.0.0"]
