@@ -23,6 +23,9 @@ const here = (() => {
 
 export const config = {
   port: Number(process.env.PORT ?? 8080),
+  // Bind-Adresse. Lokal/EXE bewusst nur 127.0.0.1; im Container muss 0.0.0.0
+  // gesetzt werden, damit der Reverse-Proxy das Backend erreicht.
+  host: process.env.HOST ?? "127.0.0.1",
   // In der EXE standardmäßig die öffentliche BRouter-Instanz (kein Docker nötig).
   brouterUrl:
     process.env.BROUTER_URL ??

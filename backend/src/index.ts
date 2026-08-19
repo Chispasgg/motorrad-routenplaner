@@ -193,7 +193,7 @@ async function start() {
   const candidates = [config.port, 8081, 8082, 8090, 3000];
   for (const port of candidates) {
     try {
-      await app.listen({ port, host: "127.0.0.1" });
+      await app.listen({ port, host: config.host });
       const url = `http://localhost:${port}`;
       if (packaged) {
         console.log(`\n  🏍️  Motorrad-Routenplaner läuft: ${url}\n  (zum Beenden dieses Fenster schließen)\n`);
