@@ -1,10 +1,10 @@
 // Kapselt die Kommunikation mit dem BRouter-Routing-Server.
 //
 // Ablauf:
-//  1. Beim ersten Routing eines Profils wird die .brf-Datei zum BRouter-Server
-//     hochgeladen (POST /profile) -> liefert eine custom-Profil-ID zurück.
-//     Das funktioniert sowohl beim selbst gehosteten Server als auch bei der
-//     öffentlichen Instanz (bikerouter.de), ohne dass man Dateien mounten muss.
+//  1. Das Profil wird bestimmt (siehe resolveProfileId): entweder einmalig zum
+//     Server hochgeladen (POST /profile -> custom-Profil-ID) oder – beim eigenen
+//     Container, der die Profile schon mitbringt – direkt per Name referenziert.
+//     Gesteuert über BROUTER_UPLOAD_PROFILES.
 //  2. Das eigentliche Routing ist ein GET mit lonlats, profile, nogos, format.
 //
 // Doku BRouter HTTP-API: https://github.com/abrensch/brouter/blob/master/docs/users/server.md
@@ -29,11 +29,21 @@ const profileFiles: Record<ProfileName, string> = {
 // Cache: Profilname -> hochgeladene custom-Profil-ID.
 const uploadedProfiles = new Map<ProfileName, string>();
 
-async function ensureProfileUploaded(profile: ProfileName): Promise<string> {
+/**
+ * Liefert die Profil-Kennung für die Routing-Anfrage.
+ *
+ * Beim eigenen BRouter-Container liegen die Motorrad-Profile bereits in
+ * /app/profiles2 und werden direkt per Name referenziert. Bei der öffentlichen
+ * Instanz sind sie unbekannt und müssen einmalig hochgeladen werden.
+ */
+async function resolveProfileId(profile: ProfileName): Promise<string> {
+  const file = profileFiles[profile];
+  if (!config.brouterUploadProfiles) return file.replace(/\.brf$/, "");
+
   const cached = uploadedProfiles.get(profile);
   if (cached) return cached;
 
-  const text = await profileText(profileFiles[profile]);
+  const text = await profileText(file);
 
   const res = await fetch(`${config.brouterUrl}/profile`, {
     method: "POST",
@@ -100,7 +110,7 @@ async function routeOnce(
   durationS: number;
   rows: SegRow[];
 }> {
-  const profileId = await ensureProfileUploaded(profile);
+  const profileId = await resolveProfileId(profile);
 
   const params = new URLSearchParams({
     lonlats: formatPoints(points),

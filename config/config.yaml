@@ -21,6 +21,11 @@ network:
 routing:
   brouter_url: http://brouter:17777/brouter
   local_brouter_tiles_enabled: true
+  # Der /profile-Endpunkt von BRouter 1.7.11-beta antwortet fehlerhaft (200-Header
+  # mit einer 500-Antwort im Rumpf). Das Image bringt die Profile ohnehin mit,
+  # deshalb werden sie per Name referenziert statt hochgeladen.
+  upload_profiles: false
+  profiles: [moto-fast, moto-curvy, moto-autobahn]
   tiles_dir: brouter-data/segments4
   tiles_source: https://brouter.de/brouter/segments4/
   tiles_coverage: Iberische Halbinsel und Süden Frankreichs (E0/W5/W10 x N35/N40/N45)

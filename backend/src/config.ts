@@ -30,6 +30,11 @@ export const config = {
   brouterUrl:
     process.env.BROUTER_URL ??
     (packaged ? "https://brouter.de/brouter" : "http://localhost:17777/brouter"),
+  // Sollen die .brf-Profile zum BRouter hochgeladen werden?
+  // Die öffentliche Instanz kennt unsere Motorrad-Profile nicht -> Upload nötig.
+  // Der eigene Container bringt sie schon mit (/app/profiles2) und wird direkt
+  // per Profilnamen angesprochen; sein /profile-Endpunkt ist zudem defekt.
+  brouterUploadProfiles: (process.env.BROUTER_UPLOAD_PROFILES ?? "true") !== "false",
   overpassUrl: process.env.OVERPASS_URL ?? "https://overpass-api.de/api/interpreter",
   // Mehrere Overpass-Instanzen als Fallback: schlägt eine fehl/ist nicht erreichbar,
   // wird die nächste versucht. Eine per OVERPASS_URL gesetzte kommt zuerst.
