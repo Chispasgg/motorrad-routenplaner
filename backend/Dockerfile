@@ -12,5 +12,8 @@ COPY --from=build /app/backend/package.json ./
 COPY --from=build /app/node_modules /app/node_modules
 COPY --from=build /app/backend/dist ./dist
 COPY backend/brouter-profiles ./brouter-profiles
+# Nicht als root laufen. Das node-Image bringt den Benutzer „node" bereits mit;
+# das Backend schreibt nichts ins Dateisystem, Leserechte genügen.
+USER node
 EXPOSE 8080
 CMD ["node", "dist/index.js"]

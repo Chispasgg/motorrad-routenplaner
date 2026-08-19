@@ -84,9 +84,10 @@ services:
         condition: service_started
     ports:
       # Bind-Adresse und Port kommen aus der .env (Default: nur lokal erreichbar).
-      - "${WEB_BIND:-127.0.0.1}:${WEB_PORT:-9640}:80"
+      # Container-seitig 8080, weil der nginx unprivilegiert läuft.
+      - "${WEB_BIND:-127.0.0.1}:${WEB_PORT:-9640}:8080"
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/ >/dev/null || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/ >/dev/null || exit 1"]
       interval: 30s
       timeout: 5s
       start_period: 10s
