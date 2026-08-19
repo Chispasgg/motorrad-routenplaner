@@ -52,6 +52,8 @@ services:
       # Im Container auf allen Interfaces lauschen, sonst kommt der nginx nicht durch.
       HOST: "0.0.0.0"
       BROUTER_URL: "${BROUTER_URL:-http://brouter:17777/brouter}"
+      # Der brouter-Container bringt die Motorrad-Profile mit -> kein Upload.
+      BROUTER_UPLOAD_PROFILES: "${BROUTER_UPLOAD_PROFILES:-false}"
       OVERPASS_URL: "${OVERPASS_URL:-https://overpass-api.de/api/interpreter}"
       NOMINATIM_URL: "${NOMINATIM_URL:-https://nominatim.openstreetmap.org}"
       AUTOBAHN_URL: "${AUTOBAHN_URL:-https://verkehr.autobahn.de/o/autobahn}"
