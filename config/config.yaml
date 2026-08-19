@@ -31,7 +31,17 @@ external_services:
   autobahn_url: https://verkehr.autobahn.de/o/autobahn
   weather_provider: Open-Meteo
 
+security:
+  no_new_privileges: true
+  published_ports: nur der Webdienst; Backend und BRouter sind nur im Compose-Netz erreichbar
+  non_root:
+    backend: ja (USER node)
+    web: ja (nginxinc/nginx-unprivileged, Port 8080)
+    brouter: nein – offene Abweichung, siehe notes
+
 notes:
   - Der öffentliche BRouter (brouter.de) antwortete im Dauerbetrieb mit 403; deshalb läuft das Routing lokal.
+  - brouter.Dockerfile stammt aus dem Upstream und läuft noch als root. Eine Umstellung braucht einen
+    Benutzer, dessen UID zum gemounteten customprofiles-Verzeichnis passt, und sollte separat erfolgen.
   - Für Gebiete außerhalb der geladenen Kacheln müssen weitere .rd5-Dateien ergänzt werden.
   - customprofiles muss schreibbar bleiben: das Backend lädt seine Profile zur Laufzeit dorthin hoch.
