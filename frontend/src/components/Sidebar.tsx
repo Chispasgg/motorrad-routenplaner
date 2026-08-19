@@ -60,10 +60,6 @@ interface Props {
   onExportGpx: () => void;
 }
 
-/** PayPal-Spendenlink (hosted button). */
-const DONATE_URL =
-  "https://www.paypal.com/donate/?hosted_button_id=74QMJ9SAHZVZJ";
-
 const letter = (i: number) => String.fromCharCode(65 + i);
 
 /** Die wählbaren Profile mit Symbol; Beschriftung/Titel kommen aus der i18n. */
@@ -85,33 +81,6 @@ export default function Sidebar(p: Props) {
   const [roadworksOpen, setRoadworksOpen] = useState(false);
   return (
     <aside className="sidebar">
-      {/* Spenden (PayPal-Button + QR-Code) */}
-      <div className="card donate-card">
-        <h2>{t("donate.title")}</h2>
-        <a
-          className="donate-btn"
-          href={DONATE_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          {t("donate.button")}
-        </a>
-        <a
-          className="donate-qr"
-          href={DONATE_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          title={t("donate.qrHint")}
-        >
-          <img
-            src="/qr-donate.png"
-            alt={t("donate.qrAlt")}
-            width={128}
-            height={128}
-          />
-        </a>
-      </div>
-
       {/* Wegpunkte mit Eingabefeldern + Abschnittsprofilen */}
       <div className="card">
         <h2>{t("wp.title")}</h2>
