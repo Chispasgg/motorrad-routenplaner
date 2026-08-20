@@ -50,7 +50,16 @@ export function createBackendClient(baseUrl: string, timeoutMs: number): Backend
       try {
         const parsed = JSON.parse(text) as { error?: string };
         if (parsed.error) message = parsed.error;
-      } catch { /* Klartext-Antwort, so verwenden */ }
+      } catch {
+        // Kein JSON. Ein vorgeschalteter Proxy antwortet im Fehlerfall mit einer
+        // HTML-Seite; rohes HTML hilft einem Agenten nicht weiter.
+        if (/^\s*<(!doctype|html)/i.test(text)) {
+          message =
+            `Der Dienst vor dem Backend hat mit HTTP ${res.status} geantwortet ` +
+            "(HTML-Fehlerseite, kein JSON). Bei langen Routen ist das meist ein " +
+            "Zeitlimit des Reverse-Proxy.";
+        }
+      }
       if (isCoverageProblem(message)) {
         throw new BackendError(
           "coverage",

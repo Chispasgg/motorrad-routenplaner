@@ -94,3 +94,28 @@ test("bricht bei Zeitüberschreitung ab", async () => {
     if (server) await new Promise<void>((resolve) => server!.close(() => resolve()));
   }
 });
+
+test("ersetzt eine HTML-Fehlerseite des Proxy durch eine brauchbare Meldung", async () => {
+  // Eigener Server: withFakeBackend verpackt alles in JSON, ein Reverse-Proxy
+  // sendet im Fehlerfall aber rohes HTML.
+  let server: Server | undefined;
+  try {
+    server = createServer((_req, res) => {
+      res.writeHead(502, { "Content-Type": "text/html" });
+      res.end("<html>\n<head><title>502 Bad Gateway</title></head>\n</html>\n");
+    });
+    await new Promise<void>((resolve) => server!.listen(0, "127.0.0.1", resolve));
+    const port = (server.address() as { port: number }).port;
+    const api = createBackendClient(`http://127.0.0.1:${port}`, 5000);
+    await assert.rejects(
+      () => api.route([[0, 0], [1, 1]], ["curvy"], []),
+      (err: unknown) =>
+        err instanceof BackendError &&
+        err.kind === "upstream" &&
+        !/<html/i.test(err.message) &&
+        /502/.test(err.message),
+    );
+  } finally {
+    if (server) await new Promise<void>((resolve) => server!.close(() => resolve()));
+  }
+});
