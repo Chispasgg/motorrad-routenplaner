@@ -1,27 +1,17 @@
-// MCP-Server (Streamable HTTP). Vorläufig nur mit einem ping-Werkzeug, um die
-// SDK-Anbindung zu verifizieren; die echten Werkzeuge kommen in tools.ts.
+// MCP-Server (Streamable HTTP) für die Routenplanung. Die Werkzeuge selbst
+// stehen in tools.ts; hier geht es nur um Transport und Lebenszyklus.
 import { createServer } from "node:http";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import { z } from "zod";
 import { config } from "./config.js";
+import { registerTools } from "./tools.js";
+import { backend } from "./backend.js";
 
 // Zustandslos: Für jede Anfrage wird eine neue McpServer-Instanz mit den
 // registrierten Werkzeugen erstellt (SDK-Anforderung für stateless-Transport).
 function createMcpServer(): McpServer {
   const mcp = new McpServer({ name: "motorrad-routenplaner", version: "0.1.0" });
-
-  mcp.registerTool(
-    "ping",
-    {
-      description: "Antwortet mit pong. Nur zur Überprüfung der Verbindung.",
-      inputSchema: { echo: z.string().optional() },
-    },
-    async ({ echo }) => ({
-      content: [{ type: "text", text: echo ? `pong: ${echo}` : "pong" }],
-    }),
-  );
-
+  registerTools(mcp, backend, config.publicWebUrl, config.maxPoints);
   return mcp;
 }
 
