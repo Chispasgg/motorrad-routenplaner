@@ -1,0 +1,53 @@
+// MCP-Server (Streamable HTTP). Vorläufig nur mit einem ping-Werkzeug, um die
+// SDK-Anbindung zu verifizieren; die echten Werkzeuge kommen in tools.ts.
+import { createServer } from "node:http";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import { z } from "zod";
+
+const PORT = Number(process.env.MCP_PORT ?? 8081);
+const HOST = process.env.MCP_HOST ?? "127.0.0.1";
+
+// Zustandslos: Für jede Anfrage wird eine neue McpServer-Instanz mit den
+// registrierten Werkzeugen erstellt (SDK-Anforderung für stateless-Transport).
+function createMcpServer(): McpServer {
+  const mcp = new McpServer({ name: "motorrad-routenplaner", version: "0.1.0" });
+
+  mcp.registerTool(
+    "ping",
+    {
+      description: "Antwortet mit pong. Nur zur Überprüfung der Verbindung.",
+      inputSchema: { echo: z.string().optional() },
+    },
+    async ({ echo }) => ({
+      content: [{ type: "text", text: echo ? `pong: ${echo}` : "pong" }],
+    }),
+  );
+
+  return mcp;
+}
+
+const http = createServer((req, res) => {
+  if (!req.url?.startsWith("/mcp")) {
+    res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });
+    res.end("Not found");
+    return;
+  }
+  let raw = "";
+  req.on("data", (chunk) => { raw += chunk; });
+  req.on("end", async () => {
+    const body = raw ? JSON.parse(raw) : undefined;
+    // Zustandslos: keine Session-IDs, jede Anfrage erhält eine eigene Instanz.
+    const mcp = createMcpServer();
+    const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
+    await mcp.connect(transport);
+    transport.handleRequest(req, res, body).catch((err) => {
+      console.error(err);
+      if (!res.headersSent) res.writeHead(500).end();
+    });
+  });
+});
+
+http.listen(PORT, HOST, () => {
+  console.log(`MCP-Server auf http://${HOST}:${PORT}/mcp`);
+});
