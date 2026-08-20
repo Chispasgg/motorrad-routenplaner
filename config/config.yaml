@@ -46,6 +46,18 @@ routing:
   tiles_source: https://brouter.de/brouter/segments4/
   tiles_coverage: Iberische Halbinsel und Süden Frankreichs (E0/W5/W10 x N35/N40/N45)
 
+live_map:
+  # La ruta que calcula el agente aparece sola en el mapa abierto.
+  endpoint: /api/live
+  transport: sse
+  scope: pizarra global, sin sesiones
+  retained: solo la ultima planificacion
+  notes:
+    - nginx necesita proxy_buffering off en /api/, o el flujo llega de golpe al final.
+    - El MCP pide alternatives:false: son dos tercios del tiempo y no cambian lo dibujado.
+    - El canal es unidireccional; la web nunca envia nada por el.
+    - Con la carta vacia la ruta entra sola; con waypoints propios se avisa y espera.
+
 saved_routes:
   # Rutas guardadas por la interfaz web. No las escribe el servidor MCP.
   engine: node:sqlite
