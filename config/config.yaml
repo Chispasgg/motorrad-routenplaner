@@ -46,6 +46,17 @@ routing:
   tiles_source: https://brouter.de/brouter/segments4/
   tiles_coverage: Iberische Halbinsel und Süden Frankreichs (E0/W5/W10 x N35/N40/N45)
 
+saved_routes:
+  # Rutas guardadas por la interfaz web. No las escribe el servidor MCP.
+  engine: node:sqlite
+  db_path_container: /data/routes.db
+  volume_host: ./data/routes
+  notes:
+    - node:sqlite es API experimental; esta encapsulada en backend/src/services/routeStore.ts.
+    - El directorio del anfitrion debe pertenecer al uid 1000: el backend no corre como root.
+    - Si la base de datos no se puede abrir, /api/routes responde 503 y el resto sigue funcionando.
+    - Se guardan los puntos, no la geometria: al cargar una ruta se recalcula.
+
 external_services:
   overpass_url: https://overpass-api.de/api/interpreter
   nominatim_url: https://nominatim.openstreetmap.org
