@@ -470,11 +470,11 @@ export default function App() {
     try {
       const route = await getRoute(id);
       // Duplizieren braucht keinen eigenen Endpunkt: lesen und neu anlegen.
-      await createRoute(
-        `${route.name} ${t("saved.copySuffix")}`.slice(0, 120),
-        route.roundTrip,
-        route.waypoints,
-      );
+      // Erst den Originalnamen kürzen, damit das Suffix nicht wegfällt und die
+      // Kopie nicht genauso heißt wie das Original.
+      const suffix = t("saved.copySuffix");
+      const base = route.name.slice(0, 120 - suffix.length - 1).trimEnd();
+      await createRoute(`${base} ${suffix}`, route.roundTrip, route.waypoints);
       await refreshSaved();
     } catch (e: any) {
       setSavedError(e.message ?? String(e));
@@ -563,6 +563,7 @@ export default function App() {
         onRenameRoute={renameRoute}
         onDuplicateRoute={duplicateRoute}
         onDeleteRoute={removeRoute}
+        onRetrySaved={() => void refreshSaved()}
       />
       <div className="resizer" onMouseDown={startResize} title="Breite ziehen" />
       <div className="main">
