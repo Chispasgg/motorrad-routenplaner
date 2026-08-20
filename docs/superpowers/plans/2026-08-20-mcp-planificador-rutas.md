@@ -87,7 +87,7 @@ API del SDK antes de escribir lógica de dominio.
   "main": "dist/index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "tsc -p tsconfig.json && tsc -p tsconfig.contract.json",
+    "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
     "test": "tsx --test test/*.test.ts"
   },
@@ -126,10 +126,14 @@ En el `package.json` de la raíz: añadir `"mcp"` al array `workspaces`, añadir
 
 ```json
 "dev:mcp": "npm run dev --workspace mcp",
-"test": "npm run test --workspace mcp && npm run test --workspace frontend"
+"test": "npm run test --workspace mcp"
 ```
 
 En `build` de la raíz, añadir el workspace `mcp` al final de la cadena.
+
+Nota: el script `test` solo cubre `mcp` porque el frontend no tiene pruebas hasta la
+Task 9, que lo amplía. Igualmente, `build` de `mcp` solo compila `tsconfig.json`; la
+Task 2 le añade la comprobación del contrato cuando ese fichero exista.
 
 - [ ] **Step 2: Servidor mínimo con una herramienta provisional**
 
@@ -347,6 +351,12 @@ export type ContractChecked = typeof _lngLat | typeof _lngLatBack | typeof _prof
   | typeof _legBack | typeof _feat | typeof _featBack | typeof _geo
   | typeof _geoBack | typeof _poi | typeof _poiBack | typeof _rw
   | typeof _rwBack | typeof _wp | typeof _wpBack;
+```
+
+Ampliar el script `build` de `mcp/package.json`, que hasta ahora solo compilaba:
+
+```json
+"build": "tsc -p tsconfig.json && tsc -p tsconfig.contract.json",
 ```
 
 `mcp/tsconfig.contract.json`:
@@ -1756,14 +1766,16 @@ por una lectura única de la URL, hecha con el inicializador diferido de `useSta
 que ocurra una sola vez:
 
 ```ts
-// Route aus der Adresszeile (vom MCP-Server erzeugter Link), einmalig beim Start.
-const initialLink = useRef(parseDeepLink(window.location.search, newId)).current;
+// Route aus der Adresszeile (vom MCP-Server erzeugter Link). Der verzögerte
+// Initialisierer läuft genau einmal – mit useRef würde bei jedem Rendern erneut
+// geparst und dabei eine verworfene ID erzeugt.
+const [initialLink] = useState(() => parseDeepLink(window.location.search, newId));
 const [waypoints, setWaypoints] = useState<Waypoint[]>(initialLink?.waypoints ?? []);
 const [roundTrip, setRoundTrip] = useState(initialLink?.roundTrip ?? false);
 ```
 
-`newId` ya existe en el fichero y `useRef` ya está importado. Colocar estas líneas donde
-estaba la declaración de `waypoints`, y borrar la de `roundTrip` de su posición actual.
+`newId` ya existe en el fichero. Colocar estas líneas donde estaba la declaración de
+`waypoints`, y borrar la de `roundTrip` de su posición actual.
 
 El `useEffect` de routing existente calcula la ruta en cuanto hay dos puntos, así que no
 hace falta ningún disparo adicional.
