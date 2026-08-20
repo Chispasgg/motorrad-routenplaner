@@ -4,8 +4,8 @@ import Fastify from "fastify";
 import cors from "@fastify/cors";
 import { exec } from "node:child_process";
 import { readFile } from "node:fs/promises";
-import { existsSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, mkdirSync } from "node:fs";
+import { join, dirname } from "node:path";
 import { config, packaged } from "./config.js";
 import { route as brouterRoute } from "./services/brouter.js";
 import { findPois } from "./services/overpass.js";
@@ -15,12 +15,30 @@ import { weatherAlong } from "./services/weather.js";
 import { getVersionInfo } from "./services/version.js";
 import { buildGpx, type GpxWaypoint } from "./services/gpx.js";
 import { staticAsset, devPublicDir } from "./resources.js";
+import {
+  createRouteStore,
+  RouteStoreError,
+  type RouteStore,
+  type StoredWaypoint,
+} from "./services/routeStore.js";
 import type { LngLat, NoGo, ProfileName, RouteRequest } from "./types.js";
 
 // In der gepackten EXE keinen Pino-Logger (vermeidet Worker-/Transport-Probleme).
 const app = Fastify({ logger: !packaged });
 
 app.get("/api/health", async () => ({ ok: true }));
+
+// Der Speicher ist eine Nebenfunktion: lässt sich die Datenbank nicht öffnen,
+// bleibt die Routenplanung nutzbar und nur /api/routes antwortet mit 503.
+let routeStore: RouteStore | null = null;
+let routeStoreError: string | null = null;
+try {
+  mkdirSync(dirname(config.routesDbPath), { recursive: true });
+  routeStore = createRouteStore(config.routesDbPath);
+} catch (err) {
+  routeStoreError = String((err as Error).message ?? err);
+  console.error("Routen-Speicher nicht verfügbar:", routeStoreError);
+}
 
 // --- Routing ---------------------------------------------------------------
 app.post<{ Body: RouteRequest }>("/api/route", async (req, reply) => {
@@ -145,6 +163,77 @@ app.post<{ Body: { track: LngLat[]; waypoints?: GpxWaypoint[]; name?: string } }
       .send(gpx);
   },
 );
+
+// --- Gespeicherte Routen ----------------------------------------------------
+/** Meldung, wenn der Speicher nicht zur Verfügung steht. */
+function unavailable() {
+  return {
+    error: `Der Routen-Speicher ist nicht verfügbar: ${routeStoreError ?? "unbekannt"}`,
+  };
+}
+
+/** Kennung aus dem Pfad lesen; null, wenn sie keine ganze Zahl ist. */
+function parseId(raw: string): number | null {
+  const id = Number(raw);
+  return Number.isInteger(id) ? id : null;
+}
+
+app.get("/api/routes", async (_req, reply) => {
+  if (!routeStore) return reply.code(503).send(unavailable());
+  return routeStore.list();
+});
+
+app.get<{ Params: { id: string } }>("/api/routes/:id", async (req, reply) => {
+  if (!routeStore) return reply.code(503).send(unavailable());
+  const id = parseId(req.params.id);
+  if (id === null) return reply.code(400).send({ error: "Ungültige Kennung." });
+  const route = routeStore.get(id);
+  if (!route) return reply.code(404).send({ error: "Route nicht gefunden." });
+  return route;
+});
+
+app.post<{ Body: { name?: string; roundTrip?: boolean; waypoints?: StoredWaypoint[] } }>(
+  "/api/routes",
+  async (req, reply) => {
+    if (!routeStore) return reply.code(503).send(unavailable());
+    const { name, roundTrip = false, waypoints } = req.body ?? {};
+    try {
+      return routeStore.create({
+        name: name as string,
+        roundTrip,
+        waypoints: waypoints ?? [],
+      });
+    } catch (err) {
+      if (err instanceof RouteStoreError) return reply.code(400).send({ error: err.message });
+      throw err;
+    }
+  },
+);
+
+app.put<{
+  Params: { id: string };
+  Body: { name?: string; roundTrip?: boolean; waypoints?: StoredWaypoint[] };
+}>("/api/routes/:id", async (req, reply) => {
+  if (!routeStore) return reply.code(503).send(unavailable());
+  const id = parseId(req.params.id);
+  if (id === null) return reply.code(400).send({ error: "Ungültige Kennung." });
+  try {
+    const updated = routeStore.update(id, req.body ?? {});
+    if (!updated) return reply.code(404).send({ error: "Route nicht gefunden." });
+    return updated;
+  } catch (err) {
+    if (err instanceof RouteStoreError) return reply.code(400).send({ error: err.message });
+    throw err;
+  }
+});
+
+app.delete<{ Params: { id: string } }>("/api/routes/:id", async (req, reply) => {
+  if (!routeStore) return reply.code(503).send(unavailable());
+  const id = parseId(req.params.id);
+  if (id === null) return reply.code(400).send({ error: "Ungültige Kennung." });
+  if (!routeStore.remove(id)) return reply.code(404).send({ error: "Route nicht gefunden." });
+  return { ok: true };
+});
 
 // --- Statisches Frontend ausliefern ---------------------------------------
 // In der EXE aus eingebetteten Assets, im Dev-Betrieb optional aus frontend/dist.
