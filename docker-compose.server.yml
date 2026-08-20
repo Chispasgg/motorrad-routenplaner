@@ -66,6 +66,10 @@ services:
       NOMINATIM_URL: "${NOMINATIM_URL:-https://nominatim.openstreetmap.org}"
       AUTOBAHN_URL: "${AUTOBAHN_URL:-https://verkehr.autobahn.de/o/autobahn}"
       CONTACT_EMAIL: "${CONTACT_EMAIL:-}"
+      ROUTES_DB_PATH: "/data/routes.db"
+    volumes:
+      # Gespeicherte Routen müssen Neubauten des Containers überleben.
+      - ./data/routes:/data
     expose:
       - "8080"
     healthcheck:
