@@ -1538,15 +1538,26 @@ Expected: todos en verde.
 
 - [ ] **Step 5: Conectar en index.ts y borrar `ping`**
 
+**Atención al patrón obligatorio.** El SDK prohíbe reutilizar un transporte sin sesión:
+lanza `Stateless transport cannot be reused across requests`. La Task 1 ya dejó `index.ts`
+creando una instancia de `McpServer` y de `StreamableHTTPServerTransport` **por cada
+petición**, dentro de una función `createMcpServer()`. No volver a un servidor
+compartido a nivel de módulo: el `initialize` funcionaría y la segunda petición daría 500.
+
 En `mcp/src/index.ts`: eliminar el registro de `ping` y su import de `zod`, e importar
-`registerTools` y `backend`:
+`registerTools` y `backend`. La función que ya existe queda así:
 
 ```ts
 import { registerTools } from "./tools.js";
 import { backend } from "./backend.js";
 
-const mcp = new McpServer({ name: "motorrad-routenplaner", version: "0.1.0" });
-registerTools(mcp, backend, config.publicWebUrl, config.maxPoints);
+// Pro Anfrage eine eigene Instanz: ein zustandsloser Transport darf laut SDK
+// nicht wiederverwendet werden.
+function createMcpServer(): McpServer {
+  const mcp = new McpServer({ name: "motorrad-routenplaner", version: "0.1.0" });
+  registerTools(mcp, backend, config.publicWebUrl, config.maxPoints);
+  return mcp;
+}
 ```
 
 - [ ] **Step 6: Verificar contra el backend real**
