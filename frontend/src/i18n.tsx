@@ -47,6 +47,8 @@ const de: Dict = {
   "saved.updatedAt": "geändert {date}",
   "saved.copySuffix": "(Kopie)",
   "saved.needRoute": "Erst eine Route mit mindestens zwei Punkten anlegen.",
+  "saved.unavailable": "Der Routen-Speicher ist nicht verfügbar.",
+  "saved.retry": "Erneut versuchen",
 
   "wp.title": "Wegpunkte",
   "wp.locating": "📍 Standort wird ermittelt …",
@@ -171,6 +173,8 @@ const en: Dict = {
   "saved.updatedAt": "changed {date}",
   "saved.copySuffix": "(copy)",
   "saved.needRoute": "Create a route with at least two points first.",
+  "saved.unavailable": "The route store is unavailable.",
+  "saved.retry": "Try again",
 
   "wp.title": "Waypoints",
   "wp.locating": "📍 Locating …",
@@ -295,6 +299,8 @@ const es: Dict = {
   "saved.updatedAt": "modificada {date}",
   "saved.copySuffix": "(copia)",
   "saved.needRoute": "Crea primero una ruta con al menos dos puntos.",
+  "saved.unavailable": "El almacén de rutas no está disponible.",
+  "saved.retry": "Reintentar",
 
   "wp.title": "Puntos de ruta",
   "wp.locating": "📍 Localizando …",

@@ -105,8 +105,15 @@ export async function downloadGpx(
 
 // --- Gespeicherte Routen ---------------------------------------------------
 
+/**
+ * Marker für "Speicher nicht verfügbar". Die Oberfläche übersetzt ihn selbst,
+ * damit der Nutzer nicht die deutsche Meldung des Backends zu sehen bekommt.
+ */
+export const STORE_UNAVAILABLE = "STORE_UNAVAILABLE";
+
 /** Fehlertext aus einer Antwort ziehen, sonst den Statuscode nennen. */
 async function errorText(res: Response): Promise<string> {
+  if (res.status === 503) return STORE_UNAVAILABLE;
   const body = (await res.json().catch(() => null)) as { error?: string } | null;
   return body?.error ?? `Fehler ${res.status}`;
 }
@@ -123,12 +130,19 @@ export async function getRoute(id: number): Promise<SavedRoute> {
   return res.json();
 }
 
-export function createRoute(
+export async function createRoute(
   name: string,
   roundTrip: boolean,
   waypoints: SavedWaypoint[],
 ): Promise<SavedRoute> {
-  return post<SavedRoute>("/api/routes", { name, roundTrip, waypoints });
+  // Eigener fetch statt post(): nur hier soll der 503 in den Marker übersetzt werden.
+  const res = await fetch("/api/routes", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, roundTrip, waypoints }),
+  });
+  if (!res.ok) throw new Error(await errorText(res));
+  return res.json();
 }
 
 export async function updateRoute(

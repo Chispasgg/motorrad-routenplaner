@@ -3,6 +3,7 @@ import GeoInput from "./GeoInput";
 import { fmtDistance, fmtDuration } from "../format";
 import { weatherIcon, weatherText } from "../weather";
 import { useI18n } from "../i18n";
+import { STORE_UNAVAILABLE } from "../api/client";
 import type {
   Poi,
   ProfileName,
@@ -69,6 +70,7 @@ interface Props {
   onRenameRoute: (id: number, name: string) => void;
   onDuplicateRoute: (id: number) => void;
   onDeleteRoute: (id: number) => void;
+  onRetrySaved: () => void;
 }
 
 const letter = (i: number) => String.fromCharCode(65 + i);
@@ -520,7 +522,18 @@ export default function Sidebar(p: Props) {
         </button>
         {savedOpen && (
           <div className="card-body">
-            {p.savedError && <p className="muted">{p.savedError}</p>}
+            {p.savedError && (
+              <>
+                <p className="muted">
+                  {p.savedError === STORE_UNAVAILABLE
+                    ? t("saved.unavailable")
+                    : p.savedError}
+                </p>
+                <button className="ghost" onClick={p.onRetrySaved}>
+                  {t("saved.retry")}
+                </button>
+              </>
+            )}
             {p.savedRoutes.length === 0 && !p.savedError ? (
               <p className="muted">{t("saved.empty")}</p>
             ) : (
