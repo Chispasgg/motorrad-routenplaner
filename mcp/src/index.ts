@@ -4,9 +4,7 @@ import { createServer } from "node:http";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { z } from "zod";
-
-const PORT = Number(process.env.MCP_PORT ?? 8081);
-const HOST = process.env.MCP_HOST ?? "127.0.0.1";
+import { config } from "./config.js";
 
 // Zustandslos: Für jede Anfrage wird eine neue McpServer-Instanz mit den
 // registrierten Werkzeugen erstellt (SDK-Anforderung für stateless-Transport).
@@ -64,6 +62,6 @@ const http = createServer((req, res) => {
   });
 });
 
-http.listen(PORT, HOST, () => {
-  console.log(`MCP-Server auf http://${HOST}:${PORT}/mcp`);
+http.listen(config.port, config.host, () => {
+  console.log(`MCP-Server auf http://${config.host}:${config.port}/mcp`);
 });
