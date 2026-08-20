@@ -6,18 +6,22 @@
   "license": "MIT",
   "workspaces": [
     "backend",
-    "frontend"
+    "frontend",
+    "mcp"
   ],
   "scripts": {
     "dev": "concurrently -n backend,frontend -c blue,green \"npm:dev:backend\" \"npm:dev:frontend\"",
     "dev:backend": "npm run dev --workspace backend",
     "dev:frontend": "npm run dev --workspace frontend",
-    "build": "npm run build --workspace backend && npm run build --workspace frontend",
+    "dev:mcp": "npm run dev --workspace mcp",
+    "build": "npm run build --workspace backend && npm run build --workspace frontend && npm run build --workspace mcp",
+    "test": "npm run test --workspace mcp && npm run test --workspace frontend",
     "package:win": "node desktop/build.mjs"
   },
   "devDependencies": {
     "concurrently": "^9.1.0",
     "esbuild": "^0.24.0",
-    "postject": "^1.0.0-alpha.6"
+    "postject": "^1.0.0-alpha.6",
+    "tsx": "^4.19.2"
   }
 }

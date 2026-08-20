@@ -11,6 +11,7 @@ import {
   fetchWeather,
   reverseGeocode,
 } from "./api/client";
+import { parseDeepLink } from "./deeplink";
 import { projectDistanceAlong } from "./geo";
 import { useI18n } from "./i18n";
 import type {
@@ -39,10 +40,14 @@ export function routeLine(route: RouteResult | null): LngLat[] {
 
 export default function App() {
   const { t } = useI18n();
-  const [waypoints, setWaypoints] = useState<Waypoint[]>([]);
+  // Route aus der Adresszeile (vom MCP-Server erzeugter Link). Der verzögerte
+  // Initialisierer läuft genau einmal – mit useRef würde bei jedem Rendern erneut
+  // geparst und dabei eine verworfene ID erzeugt.
+  const [initialLink] = useState(() => parseDeepLink(window.location.search, newId));
+  const [waypoints, setWaypoints] = useState<Waypoint[]>(initialLink?.waypoints ?? []);
   // Vorgabeprofil für neue Abschnitte; einzelne Abschnitte können abweichen.
   const [defaultProfile, setDefaultProfile] = useState<ProfileName>("curvy");
-  const [roundTrip, setRoundTrip] = useState(false);
+  const [roundTrip, setRoundTrip] = useState(initialLink?.roundTrip ?? false);
   const [locating, setLocating] = useState(false);
 
   const [avoidConstruction, setAvoidConstruction] = useState(true);

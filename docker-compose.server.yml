@@ -82,6 +82,48 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  motorrad-routenplaner-mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile.mcp
+    image: local/motorrad-routenplaner-mcp:server
+    container_name: motorrad-routenplaner-mcp
+    restart: unless-stopped
+    depends_on:
+      motorrad-routenplaner-backend:
+        condition: service_healthy
+    environment:
+      MCP_PORT: "8081"
+      # Im Container auf allen Interfaces lauschen, sonst kommt Docker nicht durch.
+      MCP_HOST: "0.0.0.0"
+      BACKEND_URL: "http://motorrad-routenplaner-backend:8080"
+      # Basis der zurückgegebenen Links: muss die URL sein, unter der du die Web-App öffnest.
+      PUBLIC_WEB_URL: "${PUBLIC_WEB_URL:-http://127.0.0.1:9640}"
+      ROUTE_TIMEOUT_MS: "${ROUTE_TIMEOUT_MS:-180000}"
+    ports:
+      - "${MCP_BIND:-127.0.0.1}:${MCP_PORT_HOST:-9641}:8081"
+    healthcheck:
+      # Echter JSON-RPC-initialize: prüft Transport und Server zugleich.
+      test:
+        - CMD
+        - node
+        - -e
+        - |
+          const body = JSON.stringify({jsonrpc:"2.0",id:1,method:"initialize",params:{protocolVersion:"2025-06-18",capabilities:{},clientInfo:{name:"healthcheck",version:"0"}}});
+          fetch("http://127.0.0.1:8081/mcp",{method:"POST",headers:{"Content-Type":"application/json","Accept":"application/json, text/event-stream"},body})
+            .then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1));
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
   motorrad-routenplaner-web:
     build:
       context: .
