@@ -36,15 +36,31 @@ const http = createServer((req, res) => {
   let raw = "";
   req.on("data", (chunk) => { raw += chunk; });
   req.on("end", async () => {
-    const body = raw ? JSON.parse(raw) : undefined;
-    // Zustandslos: keine Session-IDs, jede Anfrage erhält eine eigene Instanz.
-    const mcp = createMcpServer();
-    const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
-    await mcp.connect(transport);
-    transport.handleRequest(req, res, body).catch((err) => {
+    // Fehlerbehandlung: JSON-Parse-Fehler und connect()-Fehler dürfen den
+    // Client nicht hängen lassen.
+    try {
+      let body: unknown;
+      try {
+        body = raw ? JSON.parse(raw) : undefined;
+      } catch {
+        // Ungültiger JSON → JSON-RPC Parse Error (code -32700)
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({
+          jsonrpc: "2.0",
+          id: null,
+          error: { code: -32700, message: "Parse error: Invalid JSON" },
+        }));
+        return;
+      }
+      // Zustandslos: keine Session-IDs, jede Anfrage erhält eine eigene Instanz.
+      const mcp = createMcpServer();
+      const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
+      await mcp.connect(transport);
+      await transport.handleRequest(req, res, body);
+    } catch (err) {
       console.error(err);
       if (!res.headersSent) res.writeHead(500).end();
-    });
+    }
   });
 });
 
