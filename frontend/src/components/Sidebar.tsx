@@ -71,6 +71,12 @@ interface Props {
   onDuplicateRoute: (id: number) => void;
   onDeleteRoute: (id: number) => void;
   onRetrySaved: () => void;
+  // Live-Übertragung
+  liveActive: boolean;
+  liveProgress: { done: number; total: number };
+  livePending: boolean;
+  onApplyLive: () => void;
+  onDismissLive: () => void;
 }
 
 const letter = (i: number) => String.fromCharCode(65 + i);
@@ -102,6 +108,36 @@ export default function Sidebar(p: Props) {
   const [renaming, setRenaming] = useState<{ id: number; name: string } | null>(null);
   return (
     <aside className="sidebar">
+      {/* Läuft oder wartet eine Route des Assistenten? */}
+      {(p.liveActive || p.livePending) && (
+        <div className="card live-card">
+          {p.liveActive ? (
+            <>
+              <strong>{t("live.calculating")}</strong>
+              <p className="muted">
+                {t("live.progress", {
+                  done: p.liveProgress.done,
+                  total: p.liveProgress.total,
+                })}
+              </p>
+            </>
+          ) : (
+            <>
+              <strong>{t("live.pendingTitle")}</strong>
+              <p className="muted">{t("live.pendingBody")}</p>
+              <div className="live-row">
+                <button className="primary" onClick={p.onApplyLive}>
+                  {t("live.apply")}
+                </button>
+                <button className="ghost" onClick={p.onDismissLive}>
+                  {t("live.dismiss")}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
       {/* Wegpunkte mit Eingabefeldern + Abschnittsprofilen */}
       <div className="card">
         <h2>{t("wp.title")}</h2>

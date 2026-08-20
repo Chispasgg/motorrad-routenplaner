@@ -30,6 +30,13 @@ const de: Dict = {
   "topbar.repo": "⭐ Repository",
   "topbar.langTitle": "Sprache wechseln",
 
+  "live.calculating": "Der Assistent berechnet eine Route …",
+  "live.progress": "Abschnitt {done} von {total}",
+  "live.pendingTitle": "Neue Route vom Assistenten",
+  "live.pendingBody": "Auf der Karte stehen eigene Wegpunkte. Übernehmen?",
+  "live.apply": "Übernehmen",
+  "live.dismiss": "Verwerfen",
+
   "saved.title": "Gespeicherte Routen",
   "saved.save": "Route speichern",
   "saved.saveAsNew": "Als neue speichern",
@@ -156,6 +163,13 @@ const en: Dict = {
   "topbar.repo": "⭐ Repository",
   "topbar.langTitle": "Change language",
 
+  "live.calculating": "The assistant is calculating a route …",
+  "live.progress": "Leg {done} of {total}",
+  "live.pendingTitle": "New route from the assistant",
+  "live.pendingBody": "The map has your own waypoints. Load it?",
+  "live.apply": "Load",
+  "live.dismiss": "Discard",
+
   "saved.title": "Saved routes",
   "saved.save": "Save route",
   "saved.saveAsNew": "Save as new",
@@ -281,6 +295,13 @@ const es: Dict = {
   "topbar.repoTitle": "Abrir proyecto en GitHub",
   "topbar.repo": "⭐ Repositorio",
   "topbar.langTitle": "Cambiar idioma",
+
+  "live.calculating": "El asistente está calculando una ruta …",
+  "live.progress": "Tramo {done} de {total}",
+  "live.pendingTitle": "Ruta nueva del asistente",
+  "live.pendingBody": "El mapa tiene puntos tuyos. ¿La cargo?",
+  "live.apply": "Cargar",
+  "live.dismiss": "Descartar",
 
   "saved.title": "Rutas guardadas",
   "saved.save": "Guardar ruta",

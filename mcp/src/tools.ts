@@ -131,7 +131,12 @@ export async function planRoute(
     }
   }
 
-  const route = await api.route(routingPoints, profiles, nogos);
+  // Live an die Weboberfläche übertragen und die Alternativen weglassen: sie
+  // kosten zwei Drittel der Zeit und ändern das Gezeichnete nicht.
+  const route = await api.route(routingPoints, profiles, nogos, {
+    live: { labels: resolved.map((r) => r.label) },
+    alternatives: false,
+  });
 
   const waypoints: DeepLinkWaypoint[] = resolved.map((r, i) => ({
     lng: r.coord[0],

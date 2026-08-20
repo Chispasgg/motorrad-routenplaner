@@ -17,6 +17,7 @@ import {
   updateRoute,
 } from "./api/client";
 import { suggestRouteName } from "./routeName";
+import { applyLiveEvent, emptyLiveState, subscribeLive, type LiveState } from "./live";
 import { parseDeepLink } from "./deeplink";
 import { projectDistanceAlong } from "./geo";
 import { useI18n } from "./i18n";
@@ -102,6 +103,11 @@ export default function App() {
   const [savedError, setSavedError] = useState<string | null>(null);
   // Kennung der geladenen Route: bestimmt, ob Speichern anlegt oder aktualisiert.
   const [loadedRouteId, setLoadedRouteId] = useState<number | null>(null);
+
+  // Live-Übertragung des Assistenten
+  const [live, setLive] = useState<LiveState>(emptyLiveState);
+  // Fertige Live-Route, die auf Bestätigung wartet (Karte war nicht leer).
+  const [livePending, setLivePending] = useState<LiveState | null>(null);
 
   // Breite der Seitenleiste (ziehbar, in localStorage gemerkt).
   const [sidebarWidth, setSidebarWidth] = useState<number>(() => {
@@ -403,6 +409,46 @@ export default function App() {
     return marks;
   }, [activeRoute, roundTrip]);
 
+  // --- Live-Übertragung ---
+  // Ohne Ref würde der Effekt bei jeder Änderung der Wegpunkte neu abonnieren.
+  const waypointsRef = useRef(waypoints);
+  waypointsRef.current = waypoints;
+
+  /** Wegpunkte und Rundtour aus einer Live-Planung übernehmen. */
+  const applyLiveState = useCallback(
+    (state: LiveState) => {
+      setWaypoints(
+        state.waypoints.map((w) => ({
+          id: newId(),
+          lng: w.lng,
+          lat: w.lat,
+          label: w.label || `${w.lat.toFixed(4)}, ${w.lng.toFixed(4)}`,
+          profile: defaultProfile,
+        })),
+      );
+      setRoundTrip(state.roundTrip);
+      setLoadedRouteId(null);
+      setLivePending(null);
+    },
+    [defaultProfile],
+  );
+  const applyLiveRef = useRef(applyLiveState);
+  applyLiveRef.current = applyLiveState;
+
+  useEffect(() => {
+    return subscribeLive((event) => {
+      setLive((prev) => {
+        const next = applyLiveEvent(prev, event);
+        // Ist die Karte leer, übernimmt die Live-Route direkt; sonst wartet sie.
+        if (event.type === "done") {
+          if (waypointsRef.current.length === 0) applyLiveRef.current(next);
+          else setLivePending(next);
+        }
+        return next;
+      });
+    });
+  }, []);
+
   // --- Gespeicherte Routen ---
   const refreshSaved = useCallback(async () => {
     try {
@@ -564,6 +610,11 @@ export default function App() {
         onDuplicateRoute={duplicateRoute}
         onDeleteRoute={removeRoute}
         onRetrySaved={() => void refreshSaved()}
+        liveActive={live.active}
+        liveProgress={{ done: live.legsDone, total: live.segments }}
+        livePending={livePending !== null}
+        onApplyLive={() => livePending && applyLiveState(livePending)}
+        onDismissLive={() => setLivePending(null)}
       />
       <div className="resizer" onMouseDown={startResize} title="Breite ziehen" />
       <div className="main">
@@ -581,6 +632,7 @@ export default function App() {
           weather={weather}
           hoverM={hoverM}
           onHoverM={setHoverM}
+          liveLine={live.active ? live.line : []}
           onMapClick={(lng, lat) => addWaypoint(lng, lat)}
           onTogglePoi={togglePoi}
         />

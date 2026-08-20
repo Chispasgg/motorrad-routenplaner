@@ -24,6 +24,10 @@ export interface RouteRequest {
   profiles?: ProfileName[];
   /** Aktive Baustellen-Sperrzonen (nur die vom Nutzer aktiv gelassenen). */
   nogos?: NoGo[];
+  /** Wenn gesetzt, wird der Fortschritt live übertragen. Labels kommen vom MCP. */
+  live?: { labels: string[] };
+  /** Alternativen berechnen? Standard true. */
+  alternatives?: boolean;
 }
 
 /** Distanz/Fahrzeit eines einzelnen Abschnitts (Wegpunkt i -> i+1). */
@@ -99,3 +103,28 @@ export interface Poi {
   /** Hat genug verlässliche OSM-Metadaten, um als „real/verifiziert" zu gelten. */
   verified: boolean;
 }
+
+/** Wegpunkt, wie er im start-Ereignis der Live-Übertragung steht. */
+export interface LiveWaypoint {
+  lng: number;
+  lat: number;
+  label: string;
+}
+
+/** Ereignisse der Live-Übertragung an die Weboberfläche. */
+export type LiveEvent =
+  | {
+      type: "start";
+      waypoints: LiveWaypoint[];
+      roundTrip: boolean;
+      segments: number;
+    }
+  | {
+      type: "leg";
+      index: number;
+      coordinates: LngLat[];
+      distanceM: number;
+      durationS: number;
+    }
+  | { type: "done"; route: unknown }
+  | { type: "error"; message: string };

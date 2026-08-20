@@ -20,7 +20,12 @@ function isCoverageProblem(message: string): boolean {
 
 export interface BackendClient {
   geocode(q: string): Promise<GeocodeResult[]>;
-  route(points: LngLat[], profiles: ProfileName[], nogos: NoGo[]): Promise<RouteResult>;
+  route(
+    points: LngLat[],
+    profiles: ProfileName[],
+    nogos: NoGo[],
+    opts?: { live?: { labels: string[] }; alternatives?: boolean },
+  ): Promise<RouteResult>;
   roadworks(points: LngLat[], includeOsm: boolean): Promise<Roadwork[]>;
   pois(line: LngLat[], category: "food" | "fuel", bufferM: number): Promise<Poi[]>;
   weather(line: LngLat[], date: string | undefined, samples: number): Promise<WeatherResult>;
@@ -81,7 +86,14 @@ export function createBackendClient(baseUrl: string, timeoutMs: number): Backend
 
   return {
     geocode: (q) => call<GeocodeResult[]>(`/api/geocode?q=${encodeURIComponent(q)}`),
-    route: (points, profiles, nogos) => post<RouteResult>("/api/route", { points, profiles, nogos }),
+    route: (points, profiles, nogos, opts) =>
+      post<RouteResult>("/api/route", {
+        points,
+        profiles,
+        nogos,
+        ...(opts?.live ? { live: opts.live } : {}),
+        ...(opts?.alternatives === false ? { alternatives: false } : {}),
+      }),
     roadworks: (points, includeOsm) => post<Roadwork[]>("/api/roadworks", { points, includeOsm }),
     pois: (line, category, bufferM) => post<Poi[]>("/api/pois", { line, category, bufferM }),
     weather: (line, date, samples) => post<WeatherResult>("/api/weather", { line, date, samples }),
