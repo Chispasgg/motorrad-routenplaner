@@ -10,6 +10,8 @@ COPY backend/src ./backend/src
 COPY backend/tsconfig.json ./backend/
 COPY mcp ./mcp
 RUN npm run build --workspace mcp
+# Die Laufzeitstufe braucht tsx und typescript nicht.
+RUN npm prune --omit=dev
 
 FROM node:22-slim
 WORKDIR /app/mcp
