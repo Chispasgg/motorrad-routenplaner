@@ -237,11 +237,26 @@ function extractFeatures(
  * BRouter geroutet (mit `alternativeIdx`), damit Distanz und Fahrzeit pro Teilstrecke
  * vorliegen; die Teilstücke werden zu einem durchgehenden Track zusammengefügt.
  */
+/** Ein fertig berechneter Abschnitt, für die Live-Übertragung. */
+export interface LegProgress {
+  index: number;
+  coordinates: LngLat[];
+  distanceM: number;
+  durationS: number;
+}
+
+export interface RouteOptions {
+  onLeg?: (leg: LegProgress) => void;
+  /** Alternativen kosten zwei Drittel der Zeit; im Live-Betrieb überflüssig. */
+  alternatives?: boolean;
+}
+
 async function routeVariant(
   points: LngLat[],
   profiles: ProfileName[],
   nogos: NoGo[],
   alternativeIdx: number,
+  onLeg?: (leg: LegProgress) => void,
 ): Promise<BRouterResult> {
   if (points.length < 2) {
     throw new Error("Mindestens zwei Punkte nötig.");
@@ -265,6 +280,15 @@ async function routeVariant(
     if (merged.length === 0) merged.push(...r.coords);
     else merged.push(...r.coords.slice(1));
     legs.push({ distanceM: r.distanceM, durationS: r.durationS });
+    // Der Aufrufer darf schon zeichnen, bevor die ganze Route fertig ist. Der
+    // Schnitt des ersten Punktes ab dem zweiten Abschnitt spiegelt genau das,
+    // was oben beim Zusammenfügen von `merged` passiert.
+    onLeg?.({
+      index: i,
+      coordinates: i === 0 ? r.coords : r.coords.slice(1),
+      distanceM: r.distanceM,
+      durationS: r.durationS,
+    });
     // Höhenprofil + Maut/Fähren mit globalem Distanz-Offset anhängen.
     for (const s of downsampleElevation(r.rows, distanceM, perLegPoints)) {
       elevation.push(s);
@@ -308,8 +332,13 @@ export async function route(
   points: LngLat[],
   profiles: ProfileName[],
   nogos: NoGo[] = [],
+  options: RouteOptions = {},
 ): Promise<BRouterResult> {
-  const main = await routeVariant(points, profiles, nogos, 0);
+  const main = await routeVariant(points, profiles, nogos, 0, options.onLeg);
+
+  // Ohne Alternativen ist die Berechnung dreimal schneller. Sie erhalten
+  // absichtlich kein onLeg: nur die Hauptroute wird live gezeichnet.
+  if (options.alternatives === false) return main;
 
   const kept: BRouterResult[] = [];
   for (const idx of [1, 2]) {

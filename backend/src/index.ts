@@ -15,6 +15,7 @@ import { weatherAlong } from "./services/weather.js";
 import { getVersionInfo } from "./services/version.js";
 import { buildGpx, type GpxWaypoint } from "./services/gpx.js";
 import { staticAsset, devPublicDir } from "./resources.js";
+import { liveBoard } from "./services/liveBoard.js";
 import {
   createRouteStore,
   RouteStoreError,
@@ -42,7 +43,8 @@ try {
 
 // --- Routing ---------------------------------------------------------------
 app.post<{ Body: RouteRequest }>("/api/route", async (req, reply) => {
-  const { points, profile, profiles, nogos } = req.body ?? ({} as RouteRequest);
+  const { points, profile, profiles, nogos, live, alternatives } =
+    req.body ?? ({} as RouteRequest);
   if (!Array.isArray(points) || points.length < 2) {
     return reply.code(400).send({ error: "Mindestens zwei Punkte nötig." });
   }
@@ -53,12 +55,32 @@ app.post<{ Body: RouteRequest }>("/api/route", async (req, reply) => {
     Array.isArray(profiles) && profiles.length
       ? profiles.map(norm)
       : new Array(points.length - 1).fill(norm(profile));
+  if (live) {
+    // Die Labels kennt nur der Aufrufer: der MCP-Server hat sie aufgelöst.
+    liveBoard.publish({
+      type: "start",
+      waypoints: points.map((p, i) => ({
+        lng: p[0],
+        lat: p[1],
+        label: live.labels[i] ?? "",
+      })),
+      roundTrip: false,
+      segments: profs.length,
+    });
+  }
+
   try {
-    const result = await brouterRoute(points, profs, nogos ?? []);
+    const result = await brouterRoute(points, profs, nogos ?? [], {
+      alternatives: alternatives !== false,
+      onLeg: live ? (leg) => liveBoard.publish({ type: "leg", ...leg }) : undefined,
+    });
+    if (live) liveBoard.publish({ type: "done", route: result });
     return result;
   } catch (err: any) {
+    const message = String(err.message ?? err);
+    if (live) liveBoard.publish({ type: "error", message });
     req.log.error(err);
-    return reply.code(502).send({ error: String(err.message ?? err) });
+    return reply.code(502).send({ error: message });
   }
 });
 
@@ -163,6 +185,36 @@ app.post<{ Body: { track: LngLat[]; waypoints?: GpxWaypoint[]; name?: string } }
       .send(gpx);
   },
 );
+
+// --- Live-Übertragung der Routenberechnung ---------------------------------
+app.get("/api/live", async (req, reply) => {
+  reply.raw.writeHead(200, {
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache, no-transform",
+    Connection: "keep-alive",
+    // Bittet Zwischenspeicher, nichts zu puffern; nginx braucht zusätzlich
+    // proxy_buffering off (siehe docker/frontend-nginx.conf).
+    "X-Accel-Buffering": "no",
+  });
+
+  const send = (event: unknown) => {
+    reply.raw.write(`data: ${JSON.stringify(event)}\n\n`);
+  };
+
+  // Wer später dazukommt, bekommt zuerst die Folge der letzten Planung.
+  for (const event of liveBoard.snapshot()) send(event);
+
+  const off = liveBoard.subscribe(send);
+  // Alle 25 s ein Kommentar, damit Proxys die Verbindung nicht schließen.
+  const keepAlive = setInterval(() => reply.raw.write(": ping\n\n"), 25_000);
+
+  const cleanup = () => {
+    clearInterval(keepAlive);
+    off();
+  };
+  req.raw.on("close", cleanup);
+  req.raw.on("error", cleanup);
+});
 
 // --- Gespeicherte Routen ----------------------------------------------------
 /** Meldung, wenn der Speicher nicht zur Verfügung steht. */
