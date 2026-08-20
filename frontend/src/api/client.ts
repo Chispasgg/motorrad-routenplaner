@@ -7,6 +7,9 @@ import type {
   ProfileName,
   Roadwork,
   RouteResult,
+  SavedRoute,
+  SavedRouteSummary,
+  SavedWaypoint,
   VersionInfo,
   WeatherResult,
 } from "../types";
@@ -98,4 +101,50 @@ export async function downloadGpx(
   a.download = "route.gpx";
   a.click();
   URL.revokeObjectURL(url);
+}
+
+// --- Gespeicherte Routen ---------------------------------------------------
+
+/** Fehlertext aus einer Antwort ziehen, sonst den Statuscode nennen. */
+async function errorText(res: Response): Promise<string> {
+  const body = (await res.json().catch(() => null)) as { error?: string } | null;
+  return body?.error ?? `Fehler ${res.status}`;
+}
+
+export async function listRoutes(): Promise<SavedRouteSummary[]> {
+  const res = await fetch("/api/routes");
+  if (!res.ok) throw new Error(await errorText(res));
+  return res.json();
+}
+
+export async function getRoute(id: number): Promise<SavedRoute> {
+  const res = await fetch(`/api/routes/${id}`);
+  if (!res.ok) throw new Error(await errorText(res));
+  return res.json();
+}
+
+export function createRoute(
+  name: string,
+  roundTrip: boolean,
+  waypoints: SavedWaypoint[],
+): Promise<SavedRoute> {
+  return post<SavedRoute>("/api/routes", { name, roundTrip, waypoints });
+}
+
+export async function updateRoute(
+  id: number,
+  patch: { name?: string; roundTrip?: boolean; waypoints?: SavedWaypoint[] },
+): Promise<SavedRoute> {
+  const res = await fetch(`/api/routes/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(patch),
+  });
+  if (!res.ok) throw new Error(await errorText(res));
+  return res.json();
+}
+
+export async function deleteRoute(id: number): Promise<void> {
+  const res = await fetch(`/api/routes/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error(await errorText(res));
 }

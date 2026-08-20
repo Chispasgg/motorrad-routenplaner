@@ -8,6 +8,7 @@ import type {
   ProfileName,
   Roadwork,
   RouteResult,
+  SavedRouteSummary,
   Waypoint,
   WeatherPoint,
 } from "../types";
@@ -58,6 +59,16 @@ interface Props {
   onClearWaypoints: () => void;
   // GPX-Export (Button am unteren Ende der Seitenleiste)
   onExportGpx: () => void;
+  // Gespeicherte Routen
+  savedRoutes: SavedRouteSummary[];
+  savedError: string | null;
+  loadedRouteId: number | null;
+  suggestedName: string;
+  onSaveRoute: (name: string, asNew: boolean) => void;
+  onLoadRoute: (id: number) => void;
+  onRenameRoute: (id: number, name: string) => void;
+  onDuplicateRoute: (id: number) => void;
+  onDeleteRoute: (id: number) => void;
 }
 
 const letter = (i: number) => String.fromCharCode(65 + i);
@@ -79,6 +90,14 @@ export default function Sidebar(p: Props) {
   const { t, lang } = useI18n();
   // Baustellen-Karte einklappbar (spart Platz bei vielen Einträgen).
   const [roadworksOpen, setRoadworksOpen] = useState(false);
+  // Eingabe für den Namen beim Speichern; null = Formular zu.
+  const [saveName, setSaveName] = useState<string | null>(null);
+  const [saveAsNew, setSaveAsNew] = useState(false);
+  const [savedOpen, setSavedOpen] = useState(false);
+  // Kennung der Route, für die eine Löschbestätigung offen ist.
+  const [confirmRemove, setConfirmRemove] = useState<number | null>(null);
+  // Route, die gerade umbenannt wird, plus Eingabewert.
+  const [renaming, setRenaming] = useState<{ id: number; name: string } | null>(null);
   return (
     <aside className="sidebar">
       {/* Wegpunkte mit Eingabefeldern + Abschnittsprofilen */}
@@ -486,14 +505,152 @@ export default function Sidebar(p: Props) {
         );
       })()}
 
-      {/* GPX-Export am unteren Ende der Seitenleiste */}
-      <button
-        className="primary sidebar-export"
-        onClick={p.onExportGpx}
-        disabled={!p.route}
-      >
-        {t("sb.exportGpx")}
-      </button>
+      {/* Gespeicherte Routen */}
+      <div className="card">
+        <button
+          className="card-toggle"
+          onClick={() => setSavedOpen((o) => !o)}
+          aria-expanded={savedOpen}
+        >
+          <span className="card-toggle-caret">{savedOpen ? "▾" : "▸"}</span>
+          <span className="card-toggle-title">{t("saved.title")}</span>
+          <span className="card-toggle-meta">
+            {p.savedRoutes.length > 0 ? p.savedRoutes.length : ""}
+          </span>
+        </button>
+        {savedOpen && (
+          <div className="card-body">
+            {p.savedError && <p className="muted">{p.savedError}</p>}
+            {p.savedRoutes.length === 0 && !p.savedError ? (
+              <p className="muted">{t("saved.empty")}</p>
+            ) : (
+              <ul className="list">
+                {p.savedRoutes.map((r) => (
+                  <li key={r.id} className="saved-item">
+                    <strong>{r.name}</strong>
+                    <span className="saved-item-meta">
+                      {t("saved.points", { n: r.pointCount })} ·{" "}
+                      {t("saved.updatedAt", {
+                        date: new Date(r.updatedAt).toLocaleString(lang),
+                      })}
+                    </span>
+                    {renaming?.id === r.id ? (
+                      <div className="save-form">
+                        <input
+                          value={renaming.name}
+                          onChange={(e) => setRenaming({ id: r.id, name: e.target.value })}
+                          autoFocus
+                        />
+                        <div className="save-form-row">
+                          <button
+                            className="primary"
+                            disabled={renaming.name.trim() === ""}
+                            onClick={() => {
+                              p.onRenameRoute(r.id, renaming.name.trim());
+                              setRenaming(null);
+                            }}
+                          >
+                            {t("saved.confirm")}
+                          </button>
+                          <button className="ghost" onClick={() => setRenaming(null)}>
+                            {t("saved.cancel")}
+                          </button>
+                        </div>
+                      </div>
+                    ) : confirmRemove === r.id ? (
+                      <div className="saved-item-actions">
+                        <button
+                          className="primary"
+                          onClick={() => {
+                            p.onDeleteRoute(r.id);
+                            setConfirmRemove(null);
+                          }}
+                        >
+                          {t("saved.confirmRemove")}
+                        </button>
+                        <button className="ghost" onClick={() => setConfirmRemove(null)}>
+                          {t("saved.cancel")}
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="saved-item-actions">
+                        <button onClick={() => p.onLoadRoute(r.id)}>{t("saved.load")}</button>
+                        <button
+                          className="ghost"
+                          onClick={() => setRenaming({ id: r.id, name: r.name })}
+                        >
+                          {t("saved.rename")}
+                        </button>
+                        <button className="ghost" onClick={() => p.onDuplicateRoute(r.id)}>
+                          {t("saved.duplicate")}
+                        </button>
+                        <button className="ghost" onClick={() => setConfirmRemove(r.id)}>
+                          {t("saved.remove")}
+                        </button>
+                      </div>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Aktionen am unteren Ende: Speichern und GPX-Export */}
+      <div className="sidebar-actions">
+        <button
+          className="primary"
+          onClick={() => {
+            setSaveAsNew(false);
+            setSaveName(p.suggestedName);
+          }}
+          disabled={p.waypoints.length < 2}
+          title={p.waypoints.length < 2 ? t("saved.needRoute") : undefined}
+        >
+          {p.loadedRouteId === null ? t("saved.save") : t("saved.update")}
+        </button>
+        <button className="primary" onClick={p.onExportGpx} disabled={!p.route}>
+          {t("sb.exportGpx")}
+        </button>
+      </div>
+
+      {saveName !== null && (
+        <div className="save-form">
+          <input
+            value={saveName}
+            onChange={(e) => setSaveName(e.target.value)}
+            placeholder={t("saved.namePlaceholder")}
+            autoFocus
+          />
+          <div className="save-form-row">
+            <button
+              className="primary"
+              disabled={saveName.trim() === ""}
+              onClick={() => {
+                p.onSaveRoute(saveName.trim(), saveAsNew);
+                setSaveName(null);
+              }}
+            >
+              {t("saved.confirm")}
+            </button>
+            <button className="ghost" onClick={() => setSaveName(null)}>
+              {t("saved.cancel")}
+            </button>
+          </div>
+          {p.loadedRouteId !== null && !saveAsNew && (
+            <button
+              className="ghost"
+              onClick={() => {
+                setSaveAsNew(true);
+                setSaveName(p.suggestedName);
+              }}
+            >
+              {t("saved.saveAsNew")}
+            </button>
+          )}
+        </div>
+      )}
     </aside>
   );
 }

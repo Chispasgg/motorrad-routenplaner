@@ -4,13 +4,19 @@ import Sidebar from "./components/Sidebar";
 import StatusBar from "./components/StatusBar";
 import TopBar from "./components/TopBar";
 import {
+  createRoute,
+  deleteRoute,
   downloadGpx,
   fetchPois,
   fetchRoadworks,
   fetchRoute,
   fetchWeather,
+  getRoute,
+  listRoutes,
   reverseGeocode,
+  updateRoute,
 } from "./api/client";
+import { suggestRouteName } from "./routeName";
 import { parseDeepLink } from "./deeplink";
 import { projectDistanceAlong } from "./geo";
 import { useI18n } from "./i18n";
@@ -20,6 +26,7 @@ import type {
   ProfileName,
   Roadwork,
   RouteResult,
+  SavedRouteSummary,
   Waypoint,
   WeatherPoint,
 } from "./types";
@@ -89,6 +96,12 @@ export default function App() {
   const [weather, setWeather] = useState<WeatherPoint[]>([]);
   const [weatherLoading, setWeatherLoading] = useState(false);
   const [weatherError, setWeatherError] = useState<string | null>(null);
+
+  // Gespeicherte Routen
+  const [savedRoutes, setSavedRoutes] = useState<SavedRouteSummary[]>([]);
+  const [savedError, setSavedError] = useState<string | null>(null);
+  // Kennung der geladenen Route: bestimmt, ob Speichern anlegt oder aktualisiert.
+  const [loadedRouteId, setLoadedRouteId] = useState<number | null>(null);
 
   // Breite der Seitenleiste (ziehbar, in localStorage gemerkt).
   const [sidebarWidth, setSidebarWidth] = useState<number>(() => {
@@ -390,6 +403,95 @@ export default function App() {
     return marks;
   }, [activeRoute, roundTrip]);
 
+  // --- Gespeicherte Routen ---
+  const refreshSaved = useCallback(async () => {
+    try {
+      setSavedRoutes(await listRoutes());
+      setSavedError(null);
+    } catch (e: any) {
+      setSavedError(e.message ?? String(e));
+    }
+  }, []);
+  useEffect(() => {
+    void refreshSaved();
+  }, [refreshSaved]);
+
+  const suggestedName = useMemo(
+    () => suggestRouteName(waypoints.map((w) => w.label), roundTrip),
+    [waypoints, roundTrip],
+  );
+
+  /** Wegpunkte in die Form bringen, die das Backend speichert. */
+  const waypointsToStore = () =>
+    waypoints.map((w) => ({
+      lng: w.lng,
+      lat: w.lat,
+      label: w.label,
+      profile: w.profile ?? defaultProfile,
+    }));
+
+  const saveRoute = async (name: string, asNew: boolean) => {
+    try {
+      if (loadedRouteId !== null && !asNew) {
+        await updateRoute(loadedRouteId, { name, roundTrip, waypoints: waypointsToStore() });
+      } else {
+        const created = await createRoute(name, roundTrip, waypointsToStore());
+        setLoadedRouteId(created.id);
+      }
+      await refreshSaved();
+    } catch (e: any) {
+      setSavedError(e.message ?? String(e));
+    }
+  };
+
+  const loadRoute = async (id: number) => {
+    try {
+      const route = await getRoute(id);
+      setWaypoints(route.waypoints.map((w) => ({ id: newId(), ...w })));
+      setRoundTrip(route.roundTrip);
+      setLoadedRouteId(id);
+      setSavedError(null);
+    } catch (e: any) {
+      setSavedError(e.message ?? String(e));
+      await refreshSaved();
+    }
+  };
+
+  const renameRoute = async (id: number, name: string) => {
+    try {
+      await updateRoute(id, { name });
+      await refreshSaved();
+    } catch (e: any) {
+      setSavedError(e.message ?? String(e));
+    }
+  };
+
+  const duplicateRoute = async (id: number) => {
+    try {
+      const route = await getRoute(id);
+      // Duplizieren braucht keinen eigenen Endpunkt: lesen und neu anlegen.
+      await createRoute(
+        `${route.name} ${t("saved.copySuffix")}`.slice(0, 120),
+        route.roundTrip,
+        route.waypoints,
+      );
+      await refreshSaved();
+    } catch (e: any) {
+      setSavedError(e.message ?? String(e));
+    }
+  };
+
+  const removeRoute = async (id: number) => {
+    try {
+      await deleteRoute(id);
+      // Die geladene Route ist weg: Speichern legt wieder neu an.
+      if (loadedRouteId === id) setLoadedRouteId(null);
+      await refreshSaved();
+    } catch (e: any) {
+      setSavedError(e.message ?? String(e));
+    }
+  };
+
   // --- GPX-Export (für die Statusleiste unter der Karte) ---
   const exportGpx = () => {
     const track = routeLine(activeRoute);
@@ -452,6 +554,15 @@ export default function App() {
           setWeather([]);
         }}
         onExportGpx={exportGpx}
+        savedRoutes={savedRoutes}
+        savedError={savedError}
+        loadedRouteId={loadedRouteId}
+        suggestedName={suggestedName}
+        onSaveRoute={saveRoute}
+        onLoadRoute={loadRoute}
+        onRenameRoute={renameRoute}
+        onDuplicateRoute={duplicateRoute}
+        onDeleteRoute={removeRoute}
       />
       <div className="resizer" onMouseDown={startResize} title="Breite ziehen" />
       <div className="main">
