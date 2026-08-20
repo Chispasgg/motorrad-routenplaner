@@ -22,6 +22,8 @@ interface Props {
   hoverM: number | null;
   /** Hover-Position melden (vom Überfahren der Karte). */
   onHoverM: (m: number | null) => void;
+  /** Linie der laufenden Live-Berechnung; leer, wenn keine läuft. */
+  liveLine: LngLat[];
   onMapClick: (lng: number, lat: number) => void;
   onTogglePoi: (poi: Poi) => void;
 }
@@ -83,6 +85,20 @@ export default function MapView(props: Props) {
 
     map.on("load", () => {
       // Alternativrouten zuerst (liegen unter der aktiven Route).
+      // Live-Vorschau zuunterst: gestrichelt, damit sie sich vom Ergebnis abhebt.
+      map.addSource("live-route", { type: "geojson", data: emptyFc() });
+      map.addLayer({
+        id: "live-line",
+        type: "line",
+        source: "live-route",
+        layout: { "line-join": "round", "line-cap": "round" },
+        paint: {
+          "line-color": "#4ea1ff",
+          "line-width": 4,
+          "line-opacity": 0.85,
+          "line-dasharray": [2, 1.5],
+        },
+      });
       map.addSource("alt-routes", { type: "geojson", data: emptyFc() });
       map.addLayer({
         id: "alt-lines",
@@ -107,6 +123,7 @@ export default function MapView(props: Props) {
       loadedRef.current = true;
       syncRoute();
       syncAltRoutes();
+      syncLive();
       syncMarkers();
     });
 
@@ -157,6 +174,8 @@ export default function MapView(props: Props) {
   useEffect(syncAltRoutes, [props.allRoutes, props.selectedRouteIdx]);
   // Hover-Punkt (Streckenposition) anzeigen/verschieben
   useEffect(syncHover, [props.hoverM, props.route]);
+  // Linie der laufenden Live-Berechnung
+  useEffect(syncLive, [props.liveLine]);
   // Marker (Wegpunkte, Baustellen, POIs, Maut/Fähren, Wetter) neu aufbauen
   useEffect(syncMarkers, [
     props.waypoints,
@@ -262,6 +281,28 @@ export default function MapView(props: Props) {
     popupsRef.current.push(popup);
     el.addEventListener("mouseenter", () => popup.addTo(map));
     el.addEventListener("mouseleave", () => popup.remove());
+  }
+
+  function syncLive() {
+    const map = mapRef.current;
+    if (!map || !loadedRef.current) return;
+    const src = map.getSource("live-route") as maplibregl.GeoJSONSource | undefined;
+    if (!src) return;
+    const line = cbRef.current.liveLine;
+    if (line.length < 2) {
+      src.setData(emptyFc());
+      return;
+    }
+    src.setData({
+      type: "FeatureCollection",
+      features: [
+        {
+          type: "Feature",
+          properties: {},
+          geometry: { type: "LineString", coordinates: line },
+        },
+      ],
+    } as any);
   }
 
   function syncMarkers() {

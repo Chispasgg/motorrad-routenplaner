@@ -229,6 +229,12 @@ button.primary {
 button.ghost { background: transparent; }
 button:disabled { opacity: 0.5; cursor: not-allowed; }
 
+/* Hinweis auf eine Route, die der Assistent gerade schickt */
+/* .card hat keinen Rahmen, deshalb hier einen setzen statt nur die Farbe. */
+.live-card { border: 1px solid #4ea1ff; }
+.live-row { display: flex; gap: 6px; margin-top: 6px; }
+.live-row button { flex: 1; }
+
 /* Aktionen am unteren Ende der Seitenleiste: Speichern und GPX-Export */
 .sidebar-actions { display: flex; gap: 6px; }
 .sidebar-actions button { flex: 1; }
