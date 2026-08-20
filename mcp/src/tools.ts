@@ -62,6 +62,15 @@ function extractLine(geojson: unknown): LngLat[] {
   return [];
 }
 
+/** Stützpunkte für die Wettervorhersage entlang der Route. */
+const WEATHER_SAMPLES = 5;
+/** Suchradius um die Route für Einkehr und Tankstellen, in Metern. */
+const POI_BUFFER_M = 500;
+/** Wie viele Treffer je Zusatzinfo aufgelistet werden. */
+const POI_LIST_LIMIT = 10;
+/** Wie viele Geocoding-Kandidaten geocode_place zurückgibt. */
+const GEOCODE_LIMIT = 5;
+
 async function describeExtra(
   api: BackendClient,
   extra: "pois" | "fuel" | "weather",
@@ -69,25 +78,100 @@ async function describeExtra(
 ): Promise<string> {
   try {
     if (extra === "weather") {
-      const res = await api.weather(line, undefined, 5);
+      const res = await api.weather(line, undefined, WEATHER_SAMPLES);
       const rows = res.points.map(
         (p) => `  bei ${formatDistance(p.atM)}: ${p.tempMin}–${p.tempMax} °C, ` +
           `${p.precipMm ?? 0} mm, Wind ${p.windMaxKmh ?? 0} km/h`,
       );
       return [`Wetter (${res.date}):`, ...rows].join("\n");
     }
+    // "pois" heißt in der Backend-API "food" (Restaurants, Imbisse, Cafés).
     const category = extra === "fuel" ? "fuel" : "food";
-    const found = await api.pois(line, category, 500);
+    const found = await api.pois(line, category, POI_BUFFER_M);
     const title = extra === "fuel" ? "Tankstellen" : "Einkehr";
-    if (found.length === 0) return `${title}: keine im 500-m-Umfeld gefunden.`;
+    if (found.length === 0) return `${title}: keine im ${POI_BUFFER_M}-m-Umfeld gefunden.`;
     const rows = found
-      .slice(0, 10)
+      .slice(0, POI_LIST_LIMIT)
       .map((p) => `  ${p.name}${p.brand ? ` (${p.brand})` : ""}, ${Math.round(p.distance)} m`);
     return [`${title} (${found.length} gefunden, die ersten ${rows.length}):`, ...rows].join("\n");
   } catch (err) {
     const why = err instanceof BackendError ? err.message : String(err);
     return `Zusatzinfo "${extra}" nicht verfügbar: ${why}`;
   }
+}
+
+/**
+ * Die eigentliche Arbeit von plan_route, getrennt von der Werkzeug-Registrierung,
+ * damit Profilzuordnung, Rundtour und Zusatzinfos testbar bleiben.
+ */
+export async function planRoute(
+  api: BackendClient,
+  raw: unknown,
+  publicWebUrl: string,
+  maxPoints: number,
+): Promise<string> {
+  const input = validatePlanRoute(raw, maxPoints);
+  const resolved = await resolvePoints(api, input.points);
+
+  const coords = resolved.map((r) => r.coord);
+  const routingPoints: LngLat[] = input.roundTrip ? [...coords, coords[0]] : coords;
+  const segments = segmentCount(coords.length, input.roundTrip);
+  const profiles: ProfileName[] = input.profiles ?? new Array(segments).fill(input.profile);
+
+  let nogos: NoGo[] = [];
+  let roadworksFailed = false;
+  if (input.avoidRoadworks) {
+    try {
+      const works = await api.roadworks(coords, true);
+      nogos = works.map((w) => ({ lng: w.lng, lat: w.lat, radius: w.radius }));
+    } catch {
+      // Eine Route ohne Baustellenumfahrung ist besser als keine Route – der
+      // Agent muss aber erfahren, dass das Meiden diesmal nicht stattfand.
+      roadworksFailed = true;
+    }
+  }
+
+  const route = await api.route(routingPoints, profiles, nogos);
+
+  const waypoints: DeepLinkWaypoint[] = resolved.map((r, i) => ({
+    lng: r.coord[0],
+    lat: r.coord[1],
+    // Profil des Abschnitts, der von diesem Wegpunkt ausgeht. Der letzte Wegpunkt
+    // ohne Rundtour ist das Ziel: dort beginnt kein Abschnitt mehr.
+    profile: profiles[i] ?? profiles[profiles.length - 1],
+    name: r.label,
+  }));
+  const webUrl = buildDeepLink(publicWebUrl, waypoints, input.roundTrip);
+
+  const parts = [
+    formatRouteSummary({
+      labels: resolved.map((r) => r.label),
+      roundTrip: input.roundTrip,
+      profiles,
+      route,
+      webUrl,
+    }),
+  ];
+
+  if (roadworksFailed) {
+    parts.push(
+      "Hinweis: Die Baustellen konnten nicht abgerufen werden, diese Route meidet " +
+        "also keine. Ein erneuter Versuch kann helfen.",
+    );
+  }
+
+  if (input.include.length > 0) {
+    const line = extractLine(route.geojson);
+    if (line.length < 2) {
+      parts.push("Zusatzinfos nicht möglich: die Route hat keine Geometrie.");
+    } else {
+      for (const extra of input.include) {
+        parts.push(await describeExtra(api, extra, line));
+      }
+    }
+  }
+
+  return parts.join("\n\n");
 }
 
 export function registerTools(
@@ -106,7 +190,7 @@ export function registerTools(
     },
     async ({ query }) => {
       try {
-        const hits = (await api.geocode(query)).slice(0, 5);
+        const hits = (await api.geocode(query)).slice(0, GEOCODE_LIMIT);
         if (hits.length === 0) {
           return { content: [{ type: "text" as const, text: `Kein Treffer für "${query}".` }] };
         }
@@ -141,57 +225,8 @@ export function registerTools(
     },
     async (raw) => {
       try {
-        const input = validatePlanRoute(raw, maxPoints);
-        const resolved = await resolvePoints(api, input.points);
-
-        const coords = resolved.map((r) => r.coord);
-        const routingPoints: LngLat[] = input.roundTrip ? [...coords, coords[0]] : coords;
-        const segments = segmentCount(coords.length, input.roundTrip);
-        const profiles: ProfileName[] =
-          input.profiles ?? new Array(segments).fill(input.profile);
-
-        let nogos: NoGo[] = [];
-        if (input.avoidRoadworks) {
-          try {
-            const works = await api.roadworks(coords, true);
-            nogos = works.map((w) => ({ lng: w.lng, lat: w.lat, radius: w.radius }));
-          } catch {
-            // Baustellen sind Zusatzinformation: eine Route ohne sie ist besser als keine.
-          }
-        }
-
-        const route = await api.route(routingPoints, profiles, nogos);
-
-        const waypoints: DeepLinkWaypoint[] = resolved.map((r, i) => ({
-          lng: r.coord[0],
-          lat: r.coord[1],
-          profile: profiles[i] ?? profiles[0],
-          name: r.label,
-        }));
-        const webUrl = buildDeepLink(publicWebUrl, waypoints, input.roundTrip);
-
-        const parts = [
-          formatRouteSummary({
-            labels: resolved.map((r) => r.label),
-            roundTrip: input.roundTrip,
-            profiles,
-            route,
-            webUrl,
-          }),
-        ];
-
-        if (input.include.length > 0) {
-          const line = extractLine(route.geojson);
-          if (line.length < 2) {
-            parts.push("Zusatzinfos nicht möglich: die Route hat keine Geometrie.");
-          } else {
-            for (const extra of input.include) {
-              parts.push(await describeExtra(api, extra, line));
-            }
-          }
-        }
-
-        return { content: [{ type: "text" as const, text: parts.join("\n\n") }] };
+        const text = await planRoute(api, raw, publicWebUrl, maxPoints);
+        return { content: [{ type: "text" as const, text }] };
       } catch (err) {
         return toolError(err);
       }

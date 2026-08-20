@@ -18,6 +18,22 @@ network:
   web_bind: 192.168.65.9
   web_port: 9640
 
+mcp:
+  # Servidor MCP para que agentes planifiquen rutas y reciban un enlace a la web.
+  endpoint: http://192.168.65.9:9641/mcp
+  transport: http
+  bind: 192.168.65.9
+  port: 9641
+  container_port: 8081
+  tools: [plan_route, geocode_place]
+  max_waypoints: 10
+  notes:
+    - No contiene logica de routing: llama a /api/* del backend.
+    - Una instancia de McpServer y de transporte por peticion; el SDK prohibe reutilizar
+      un transporte sin sesion.
+    - PUBLIC_WEB_URL debe ser la URL con la que se abre la web, porque es la base de los
+      enlaces que devuelve.
+
 routing:
   brouter_url: http://brouter:17777/brouter
   local_brouter_tiles_enabled: true
