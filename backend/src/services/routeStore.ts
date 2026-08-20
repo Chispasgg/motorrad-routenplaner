@@ -128,7 +128,9 @@ export function createRouteStore(
   `);
 
   function readRow(id: number): Row | null {
-    const row = db.prepare("SELECT * FROM routes WHERE id = ?").get(id) as Row | undefined;
+    const row = db
+      .prepare("SELECT * FROM routes WHERE id = ?")
+      .get(id) as unknown as Row | undefined;
     return row ?? null;
   }
 

@@ -138,6 +138,23 @@ test("weist ungültige Profile und Koordinaten ab", () => {
       }),
       RouteStoreError,
     );
+    // Breitengrad getrennt prüfen: die Grenzen sind andere als beim Längengrad.
+    assert.throws(
+      () => store.create({
+        name: "Falsch",
+        roundTrip: false,
+        waypoints: [WPS[0], { lng: 0, lat: 91, label: "X", profile: "fast" }],
+      }),
+      RouteStoreError,
+    );
+    assert.throws(
+      () => store.create({
+        name: "Falsch",
+        roundTrip: false,
+        waypoints: [WPS[0], { lng: 0, lat: -91, label: "X", profile: "fast" }],
+      }),
+      RouteStoreError,
+    );
   });
 });
 
