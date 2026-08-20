@@ -229,8 +229,21 @@ button.primary {
 button.ghost { background: transparent; }
 button:disabled { opacity: 0.5; cursor: not-allowed; }
 
-/* GPX-Export-Button am unteren Ende der Seitenleiste */
+/* Aktionen am unteren Ende der Seitenleiste: Speichern und GPX-Export */
+.sidebar-actions { display: flex; gap: 6px; }
+.sidebar-actions button { flex: 1; }
 .sidebar-export { width: 100%; }
+
+/* Namensfeld beim Speichern */
+.save-form { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
+.save-form-row { display: flex; gap: 6px; }
+.save-form-row button { flex: 1; }
+
+/* Liste der gespeicherten Routen */
+.saved-item { display: flex; flex-direction: column; gap: 2px; }
+.saved-item-meta { font-size: 11px; color: var(--muted); }
+.saved-item-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.saved-item-actions button { padding: 2px 6px; font-size: 12px; }
 
 .seg { display: flex; gap: 6px; }
 .seg button { flex: 1; }

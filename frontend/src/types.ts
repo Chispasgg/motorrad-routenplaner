@@ -105,3 +105,23 @@ export interface VersionInfo {
   releaseUrl: string;
   repoUrl: string;
 }
+
+export interface SavedWaypoint {
+  lng: number;
+  lat: number;
+  label: string;
+  profile: ProfileName;
+}
+
+export interface SavedRouteSummary {
+  id: number;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+  roundTrip: boolean;
+  pointCount: number;
+}
+
+export interface SavedRoute extends SavedRouteSummary {
+  waypoints: SavedWaypoint[];
+}

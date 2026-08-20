@@ -12,3 +12,6 @@ brouter-data/customprofiles/
 # Packaging-Artefakte
 desktop/build/
 desktop/Routenplaner.exe
+
+# Datos locales (base de datos de rutas)
+data/

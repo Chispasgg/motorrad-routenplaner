@@ -56,6 +56,8 @@ export const config = {
   contactEmail: process.env.CONTACT_EMAIL ?? "",
   // Verzeichnis mit den BRouter-Profildateien (.brf) – nur im Dev-Betrieb.
   profilesDir: resolve(here, "..", "brouter-profiles"),
+  // Datei der Routen-Datenbank. Im Container liegt sie auf einem Volume.
+  routesDbPath: process.env.ROUTES_DB_PATH ?? resolve(here, "..", "data", "routes.db"),
 };
 
 // User-Agent für faire Nutzung der OSM-Dienste (Nominatim verlangt einen aussagekräftigen UA).
