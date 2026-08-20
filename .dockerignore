@@ -11,3 +11,4 @@ desktop/Routenplaner.exe
 npm-debug.log*
 .DS_Store
 .env
+mcp/dist
